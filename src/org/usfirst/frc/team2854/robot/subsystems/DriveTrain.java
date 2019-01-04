@@ -1,14 +1,17 @@
 package org.usfirst.frc.team2854.robot.subsystems;
 
 
+
 import org.usfirst.frc.team2854.robot.PIDTemplate;
 import org.usfirst.frc.team2854.robot.RobotMap;
 import org.usfirst.frc.team2854.robot.commands.JoystickCommand;
 
 import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import com.kauailabs.navx.frc.AHRS;
 
+import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.PIDController;
 import edu.wpi.first.wpilibj.PIDOutput;
@@ -30,6 +33,9 @@ public class DriveTrain extends Subsystem implements PIDOutput {
 	private final AHRS ahrs;
 
 	public final PIDController turnController;
+	
+	private static Value SLOW, FAST, UNKNOWN;
+	private static Value gear;
 	
 /*would be a good idea to store all these constants in another file*/
 	private final double P = 0;
@@ -53,13 +59,6 @@ public class DriveTrain extends Subsystem implements PIDOutput {
 
 		ahrs = new AHRS(SPI.Port.kMXP);
 		
-		
-
-		PIDTemplate.configTalon(leftTalon1, !side);
-		PIDTemplate.configTalon(rightTalon1, !side);
-		PIDTemplate.PIDUpdate(leftTalon1, Pd, Id, Dd, Fd, targetSpeed);
-		PIDTemplate.PIDUpdate(rightTalon1, Pd, Id, Dd, Fd, targetSpeed);
-		
 		leftTalon2.follow(leftTalon1);
 		rightTalon2.follow(rightTalon2);
 		
@@ -68,6 +67,9 @@ public class DriveTrain extends Subsystem implements PIDOutput {
 		turnController.setOutputRange(-0.45, 0.45); // range of power values to output
 		turnController.setAbsoluteTolerance(2.0f); // pidcontroller will stop within 2 degrees of set point
 		turnController.setContinuous();
+		
+		PIDTemplate.configTalon(leftTalon1, !side);
+		PIDTemplate.configTalon(rightTalon1, !side);
 		
 	}
 
@@ -87,19 +89,52 @@ public class DriveTrain extends Subsystem implements PIDOutput {
 	}
 	
 	
-	public void set(ControlMode mode, double left, double right) {
+	public void drive(ControlMode mode, double left, double right) {
 		leftTalon1.set(mode, left);
 		rightTalon1.set(mode, right);
 	}
 
-	public void drive() {
-
+	public void setGearState() {
+		SLOW = Value.kForward;
+		FAST = Value.kReverse;
+		UNKNOWN = Value.kOff;
 	}
 
+	public void applyShift(String gearState) {
+		if(gearState.equals("SLOW")) {
+			gear = SLOW;
+			double P_Drive_LOW = 0;
+			double I_Drive_LOW = 0;
+			double D_Drive_LOW =  0;
+			double F_Drive_LOW = 0; 
+			double targetSpeed_Drive_LOW = 0;
+			PIDTemplate.updatePID(leftTalon1, P_Drive_LOW, I_Drive_LOW, D_Drive_LOW, F_Drive_LOW,targetSpeed_Drive_LOW) ;
+			PIDTemplate.updatePID(rightTalon1, P_Drive_LOW, I_Drive_LOW, D_Drive_LOW, F_Drive_LOW,targetSpeed_Drive_LOW) ;
+		}else if(gearState.equals("FAST")) {
+			gear = FAST;
+			double P_Drive_HIGH = 0.35;
+			double I_Drive_HIGH = 1.0E-4;
+			double D_Drive_HIGH = 0.11;
+			double F_Drive_HIGH = 0;
+			double targetSpeed_Drive_FAST = 0;
+			
+			PIDTemplate.updatePID(leftTalon1, P_Drive_HIGH, I_Drive_HIGH, D_Drive_HIGH, F_Drive_HIGH, targetSpeed_Drive_FAST);
+			PIDTemplate.updatePID(rightTalon1, P_Drive_HIGH, I_Drive_HIGH, D_Drive_HIGH, F_Drive_HIGH, targetSpeed_Drive_FAST);
+		}
+	}
+	
+	public void shiftSlow() {
+		applyShift("SLOW");
+	}
+	public void shiftFast() {
+		applyShift("FAST");
+	}
+	
+	
 	@Override
 	public void pidWrite(double output) {
 		// TODO Auto-generated method stub
-		set(ControlMode.PercentOutput, -output, output); // spins robot in circles
+		drive(ControlMode.PercentOutput, -output, output); // spins robot in circles
 
 	}
 	
